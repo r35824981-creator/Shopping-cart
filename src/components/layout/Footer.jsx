@@ -97,7 +97,7 @@ export default function Footer() {
 
       <div className={`container ${styles.bottom}`}>
         <p>© {new Date().getFullYear()} FootWear. Academic project demo.</p>
-        <p>Made with React, Vite and InsForge.</p>
+        <p>Made with React, Vite and Supabase.</p>
       </div>
     </footer>
   );

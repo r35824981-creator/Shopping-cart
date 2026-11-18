@@ -9,7 +9,7 @@ FootWear is a web-based e-commerce application for browsing and buying sneakers 
 1. Deliver a fully working storefront where a user can register, log in, browse sneakers, add items to a cart, and place a Cash on Delivery order end to end.
 2. Provide an admin dashboard where an admin can add, edit, and delete products and view and update the status of customer orders.
 3. Ship a responsive, visually clean UI that works on mobile, tablet, and desktop screen sizes.
-4. Demonstrate full-stack skills: frontend development (React), backend integration, database management, authentication, and file storage using InsForge.
+4. Demonstrate full-stack skills: frontend development (React), backend integration, database management, authentication, and file storage using Supabase.
 5. Keep the project simple, maintainable, and easy to demonstrate in a final-year project presentation.
 
 ## Core User Flow
@@ -28,7 +28,7 @@ FootWear is a web-based e-commerce application for browsing and buying sneakers 
 
 ### Authentication
 
-- User registration and login using InsForge Authentication
+- User registration and login using Supabase Auth
 - Logout and persistent session handling
 - Role separation between regular users and admin
 - Protected routes for checkout, order history, and the admin dashboard
@@ -59,7 +59,7 @@ FootWear is a web-based e-commerce application for browsing and buying sneakers 
 
 - Admin-only access
 - Add, edit, and delete products (name, description, price, category, sizes, images)
-- Upload product images to InsForge Storage
+- Upload product images to Supabase Storage
 - View all customer orders and order details
 - Update order status (for example Pending, Confirmed, Shipped, Delivered, Cancelled)
 
@@ -74,10 +74,10 @@ FootWear is a web-based e-commerce application for browsing and buying sneakers 
 ### In Scope
 
 - React.js frontend using JavaScript, HTML, and CSS
-- InsForge as the backend (Backend-as-a-Service)
-- PostgreSQL database through InsForge
-- InsForge Authentication for registration and login
-- InsForge Storage for product images
+- Supabase as the backend (Backend-as-a-Service)
+- PostgreSQL database through Supabase
+- Supabase Auth for registration and login
+- Supabase Storage for product images
 - Product browsing, search, filter, and size selection
 - Shopping cart with quantity updates
 - Checkout with Cash on Delivery

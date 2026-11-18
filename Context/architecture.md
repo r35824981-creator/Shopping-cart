@@ -7,11 +7,11 @@
 | Frontend       | React.js + JavaScript (Vite)            | Single-page app: pages, components, routing, client state            |
 | Styling        | HTML5 + CSS (CSS Modules, CSS variables)| Minimalist light theme defined in `ui-context.md`                    |
 | Routing        | React Router                            | Client-side routes and route guards                                  |
-| Backend        | InsForge (Backend-as-a-Service)         | Hosted backend: database API, auth, storage. No custom server        |
-| Database       | PostgreSQL through InsForge             | Users' profiles, products, sizes, carts, orders                      |
-| Auth           | InsForge Authentication                 | Email and password registration, login, sessions                     |
-| File storage   | InsForge Storage                        | Product images                                                       |
-| Client SDK     | `@insforge/sdk`                         | The only way the frontend talks to InsForge                          |
+| Backend        | Supabase (Backend-as-a-Service)         | Hosted backend: database API, auth, storage. No custom server        |
+| Database       | PostgreSQL through Supabase             | Users' profiles, products, sizes, carts, orders                      |
+| Auth           | Supabase Auth                           | Email and password registration, login, sessions                     |
+| File storage   | Supabase Storage                        | Product images                                                       |
+| Client SDK     | `@supabase/supabase-js`                 | The only way the frontend talks to Supabase                          |
 | Version control| Git + GitHub                            | Source control and history                                           |
 | Hosting        | Static frontend hosting (e.g. Vercel or Netlify) | Serves the built React app. Final platform is an open question in `progress-tracker.md` |
 
@@ -22,17 +22,17 @@
 - `src/routes/` — Router configuration and route guards (`ProtectedRoute` for signed-in users, `AdminRoute` for admins).
 - `src/context/` — Global state providers: `AuthContext` (current user, profile, role) and `CartContext` (cart items and totals).
 - `src/hooks/` — Custom hooks that wrap context and data-fetching logic.
-- `src/services/` — The data access layer. The only place that calls InsForge for products, cart, orders, auth, and storage.
-- `src/lib/dataClient.js` — Chooses the data adapter: the InsForge adapter when `VITE_INSFORGE_URL` and `VITE_INSFORGE_ANON_KEY` are set, or the in-browser demo adapter otherwise. `insforgeAdapter.js` wraps the single shared InsForge client; `localAdapter.js` mirrors the same contract on top of `localStorage`.
+- `src/services/` — The data access layer. The only place that calls Supabase for products, cart, orders, auth, and storage.
+- `src/lib/dataClient.js` — Chooses the data adapter: the Supabase adapter when `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` are set, or the in-browser demo adapter otherwise. `supabaseAdapter.js` wraps the single shared Supabase client; `localAdapter.js` mirrors the same contract on top of `localStorage`.
 - `src/utils/` — Pure helpers: price formatting, cart total calculation, validators.
 - `src/styles/` — `tokens.css` (design tokens) and `global.css`.
-- InsForge project — Owns the database schema, access rules (RLS), auth configuration, and storage buckets. These are configured on the InsForge side and recorded in this file.
+- Supabase project — Owns the database schema, access rules (RLS), auth configuration, and storage buckets. These are configured on the Supabase side and recorded in this file.
 
 ## Data Model
 
 All table and column names use `snake_case`. Primary keys are `id` (UUID).
 
-The complete schema, RLS policies, storage bucket policies and the `place_order` function live in [`insforge/schema.sql`](../insforge/schema.sql).
+The complete schema, RLS policies, storage bucket policies, the profile trigger and the `place_order` function live in [`supabase/schema.sql`](../supabase/schema.sql). Sample catalogue data lives in [`supabase/seed.sql`](../supabase/seed.sql).
 
 | Table           | Key columns                                                                                                   | Notes                                                        |
 | --------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
@@ -52,50 +52,51 @@ Relationships:
 ## Storage Model
 
 - **Database (PostgreSQL)**: All structured data: profiles and roles, products, sizes and stock, cart items, orders, and order items. Product records hold only the image URL or path, never the image itself.
-- **File storage (InsForge Storage)**: Product images in a `product-images` bucket. The bucket allows public read so the storefront can display images, and only admins can upload, replace, or delete files.
-- **Browser (localStorage)**: Only the InsForge session handled by the SDK and light UI preferences. Cart data for signed-in users lives in the database, not in the browser.
+- **File storage (Supabase Storage)**: Product images in a `product-images` bucket. The bucket allows public read so the storefront can display images, and only admins can upload, replace, or delete files.
+- **Browser (localStorage)**: Only the Supabase auth session handled by the SDK and light UI preferences. Cart data for signed-in users lives in the database, not in the browser.
 
 ### Demo mode
 
-- With no InsForge credentials configured, `src/lib/dataClient.js` loads the demo adapter. The demo adapter keeps the entire dataset (users, products, sizes, carts, orders) in `localStorage` and seeds it with sample products, a customer account and an admin account on first load.
-- Demo mode exists so the project can be reviewed and graded without hosting a backend. The InsForge adapter exposes the same methods, so pages and services never branch on the mode.
+- With no Supabase credentials configured, `src/lib/dataClient.js` loads the demo adapter. The demo adapter keeps the entire dataset (users, products, sizes, carts, orders) in `localStorage` and seeds it with sample products, a customer account and an admin account on first load.
+- Demo mode exists so the project can be reviewed and graded without hosting a backend. The Supabase adapter exposes the same methods, so pages and services never branch on the mode.
 - A visible "Demo mode" note appears on the admin dashboard and the login page whenever the demo adapter is active.
 
 ## Auth and Access Model
 
-- Every account is created and signed in through InsForge Authentication with email and password. A `profiles` row is created for each new user with the role `customer`.
+- Every account is created and signed in through Supabase Auth with email and password. A `profiles` row is created by a trigger on `auth.users` (`handle_new_user`), with the role `customer`. The client also inserts the profile as a fallback if the row is missing.
+- The trigger matters because Supabase creates the auth user inside its own transaction. When "Confirm email" is enabled the client never holds a session at signup, so a client-side insert would fail RLS.
 - Browsing products is public. Checkout, cart, order history, and the admin dashboard require sign-in.
-- Roles: `customer` and `admin`. The first admin is created manually by setting `role` to `admin` in the InsForge dashboard. The app never lets a user change their own role.
+- Roles: `customer` and `admin`. The first admin is created manually by setting `role` to `admin` from the Supabase SQL editor. The app never lets a user change their own role.
 - Ownership: every cart item and order belongs to exactly one user through `user_id`. Customers can read and change only their own cart items, and read only their own orders and order items.
 - Admin access: only admins can create, update, or delete products and sizes, upload product images, read all orders, and update order status.
-- Enforcement happens in two places. InsForge Row Level Security (RLS) policies are the real protection. Route guards and hidden buttons in the UI are only for user experience and are never the only check.
+- Enforcement happens in two places. Supabase Row Level Security (RLS) policies are the real protection. Route guards and hidden buttons in the UI are only for user experience and are never the only check.
 - Public read access (no sign-in) is limited to active products, their sizes, and product images.
 
 ## Order Flow
 
 1. The user reviews the cart (`cart_items`) and submits the checkout form (name, phone, address).
-2. With the InsForge adapter the app calls the `place_order` database function, which creates the `orders` row with status `pending` and payment method `COD`, copies one `order_items` row per cart item (product name, image, size, quantity and current price), reduces stock and clears the cart in a single transaction. The demo adapter performs the same steps against its local state.
+2. With the Supabase adapter the app calls the `place_order` database function, which creates the `orders` row with status `pending` and payment method `COD`, copies one `order_items` row per cart item (product name, image, size, quantity and current price), reduces stock and clears the cart in a single transaction. The demo adapter performs the same steps against its local state.
 3. The user sees a confirmation and can find the order in order history.
 4. An admin updates the order status from the dashboard. The user sees the new status on their next load.
 
 ## Environment and Deployment
 
 - Environment variables (documented in `.env.example`, real values in `.env` which is never committed):
-  - `VITE_INSFORGE_URL` — the InsForge project URL.
-  - `VITE_INSFORGE_ANON_KEY` — the public client key, if the project requires one.
+  - `VITE_SUPABASE_URL` — the Supabase project URL.
+  - `VITE_SUPABASE_PUBLISHABLE_KEY` — the publishable (browser-safe) key from Project Settings → API Keys.
 - When either variable is empty, the app starts in demo mode with the local adapter. No backend setup is required to run, review or grade the project.
-- Only public, client-safe values are used in the frontend. Admin or service credentials are never placed in the frontend.
+- Only public, client-safe values are used in the frontend. The secret / `service_role` key is never placed in the frontend or in a `VITE_` variable.
 - Build: `npm run build` produces a static bundle that is deployed to the hosting platform. The same environment variables are set in the host's settings.
 - Because the app is a single-page app, the host must rewrite all routes to `index.html`.
 - Workflow: develop locally, push to GitHub, and deploy from the `main` branch.
 
 ## Invariants
 
-1. The frontend talks to InsForge only through functions in `src/services/`, using the single client from `src/lib/insforge.js`. Components never call InsForge directly.
-2. Authorization is enforced by InsForge RLS policies. UI checks are never the only protection for any read or write.
-3. A user's role can only be changed by an admin directly in the InsForge dashboard or database, never from the client app.
+1. The frontend talks to Supabase only through functions in `src/services/`, using the single client exported from `src/lib/dataClient.js`. Components never call Supabase directly.
+2. Authorization is enforced by Supabase RLS policies. UI checks are never the only protection for any read or write.
+3. A user's role can only be changed by an admin directly in the Supabase dashboard or database, never from the client app.
 4. Prices shown at checkout come from the database, and each order item stores the unit price at purchase time. Changing a product price never alters past orders.
-5. Product images live in InsForge Storage and only their URLs are stored in the database. No binary data is stored in database columns.
+5. Product images live in Supabase Storage and only their URLs are stored in the database. No binary data is stored in database columns.
 6. Cash on Delivery is the only payment method. No payment data, card numbers, or payment gateway code exists in the project.
 7. An order is never left half-saved. If saving the order items fails, the order must not remain as a valid, visible order.
 8. Secrets and keys never appear in committed code. Only public client keys are used in the frontend.

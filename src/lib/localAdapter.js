@@ -133,7 +133,7 @@ const requireSize = (state, productId, size) => {
 };
 
 /**
- * In-browser demo backend. Mirrors the InsForge adapter contract so the app can
+ * In-browser demo backend. Mirrors the Supabase adapter contract so the app can
  * run without any backend credentials. Data lives in localStorage.
  * @returns {object} data adapter
  */

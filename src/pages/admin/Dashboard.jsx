@@ -78,8 +78,8 @@ export default function Dashboard() {
         <p className={styles.notice}>
           <AlertTriangle size={16} aria-hidden="true" />
           <span>
-            <strong>Demo mode.</strong> No InsForge project is configured, so products, orders and accounts are
-            stored in this browser. Add your InsForge keys to <code>.env</code> to use the live backend.
+            <strong>Demo mode.</strong> No Supabase project is configured, so products, orders and accounts are
+            stored in this browser. Add your Supabase keys to <code>.env</code> to use the live backend.
           </span>
         </p>
       ) : null}

@@ -12,7 +12,7 @@ const ORDER_COLUMNS = `
 `;
 
 /**
- * Throw a friendly error when a PostgREST call fails.
+ * Throw a friendly error when a Supabase/PostgREST call fails.
  * @param {{ data: unknown, error: { message?: string } | null }} response
  * @returns {any}
  */
@@ -24,10 +24,34 @@ function unwrap({ data, error }) {
 }
 
 /**
- * @param {import('@insforge/sdk').InsForgeClient} client
+ * Supabase auth errors are developer-oriented ("Email not confirmed"); turn the
+ * common ones into something a shopper can act on.
+ * @param {{ message?: string, code?: string } | null} error
+ * @param {string} fallback
+ * @returns {string}
  */
-export function createInsforgeAdapter(client) {
-  const db = client.database;
+function authMessage(error, fallback) {
+  const message = error?.message || '';
+  if (/email not confirmed/i.test(message)) {
+    return 'Please confirm your email address, then sign in.';
+  }
+  if (/invalid login credentials/i.test(message)) {
+    return 'Invalid email or password.';
+  }
+  if (/user already registered/i.test(message)) {
+    return 'An account with that email already exists.';
+  }
+  if (/password should be at least/i.test(message)) {
+    return message;
+  }
+  return message || fallback;
+}
+
+/**
+ * @param {import('@supabase/supabase-js').SupabaseClient} client
+ */
+export function createSupabaseAdapter(client) {
+  const db = client;
 
   const mapProduct = (row) => ({
     ...row,
@@ -40,20 +64,27 @@ export function createInsforgeAdapter(client) {
     customer: row.profiles?.full_name || 'Customer',
   });
 
-  const loadProfile = async (userId, email) => {
-    const profile = unwrap(
+  /** @param {string} userId */
+  const fetchProfile = async (userId) =>
+    unwrap(
       await db
         .from('profiles')
         .select('id, full_name, phone, role, created_at')
         .eq('id', userId)
         .maybeSingle(),
     );
-    if (profile) return profile;
-    return { id: userId, full_name: email?.split('@')[0] || 'Customer', phone: '', role: 'customer', created_at: new Date().toISOString() };
-  };
 
-  const fetchProductSizes = async (productId) =>
-    unwrap(await db.from('product_sizes').select('size, stock').eq('product_id', productId)) || [];
+  /** @param {string} userId @param {string} [email] */
+  const fallbackProfile = (userId, email) => ({
+    id: userId,
+    full_name: email?.split('@')[0] || 'Customer',
+    phone: '',
+    role: 'customer',
+    created_at: new Date().toISOString(),
+  });
+
+  const loadProfile = async (userId, email) =>
+    (await fetchProfile(userId)) || fallbackProfile(userId, email);
 
   const writeSizes = async (productId, sizes) => {
     unwrap(await db.from('product_sizes').delete().eq('product_id', productId));
@@ -70,37 +101,58 @@ export function createInsforgeAdapter(client) {
   };
 
   return {
-    mode: 'insforge',
+    mode: 'supabase',
 
     auth: {
       async getSession() {
-        const { data, error } = await client.auth.getCurrentUser();
+        // getUser() validates the persisted token with the auth server, unlike
+        // getSession() which only reads what is already in storage.
+        const { data, error } = await client.auth.getUser();
         if (error || !data?.user) return null;
         const profile = await loadProfile(data.user.id, data.user.email);
         return { user: { id: data.user.id, email: data.user.email }, profile };
       },
 
       async signUp({ email, password, fullName }) {
-        const { data, error } = await client.auth.signUp({ email, password, name: fullName });
-        if (error) throw new Error(error.message || 'Could not create your account.');
-        const userId = data?.user?.id;
-        if (!userId) throw new Error('Check your inbox to confirm your email, then sign in.');
-        const { error: profileError } = await db.from('profiles').insert({
-          id: userId,
-          full_name: fullName,
-          phone: '',
-          role: 'customer',
+        const { data, error } = await client.auth.signUp({
+          email,
+          password,
+          options: { data: { full_name: fullName } },
         });
-        if (profileError) throw new Error('Your account was created but the profile could not be saved. Sign in and try again.');
-        return { user: { id: userId, email }, profile: await loadProfile(userId, email) };
+        if (error) throw new Error(authMessage(error, 'Could not create your account.'));
+
+        const user = data?.user;
+        if (!user) throw new Error('Could not create your account.');
+
+        // With "Confirm email" enabled Supabase returns a user but no session.
+        if (!data.session) {
+          throw new Error('Account created. Check your inbox to confirm your email, then sign in.');
+        }
+
+        // A trigger on auth.users normally creates the profile. Insert it here
+        // as a fallback so an account is never left without a profile row.
+        const existing = await fetchProfile(user.id);
+        if (!existing) {
+          const { error: profileError } = await db.from('profiles').insert({
+            id: user.id,
+            full_name: fullName,
+            phone: '',
+            role: 'customer',
+          });
+          if (profileError) {
+            throw new Error('Your account was created but the profile could not be saved. Sign in and try again.');
+          }
+        }
+
+        return { user: { id: user.id, email }, profile: await loadProfile(user.id, email) };
       },
 
       async signIn({ email, password }) {
         const { data, error } = await client.auth.signInWithPassword({ email, password });
-        if (error) throw new Error('Invalid email or password.');
-        const userId = data?.user?.id;
-        if (!userId) throw new Error('Invalid email or password.');
-        return { user: { id: userId, email }, profile: await loadProfile(userId, email) };
+        if (error) throw new Error(authMessage(error, 'Invalid email or password.'));
+        const user = data?.user;
+        if (!user) throw new Error('Invalid email or password.');
+        return { user: { id: user.id, email }, profile: await loadProfile(user.id, email) };
       },
 
       async signOut() {
@@ -336,7 +388,7 @@ export function createInsforgeAdapter(client) {
 
     orders: {
       async place({ deliveryName, deliveryPhone, deliveryAddress }) {
-        const { data, error } = await client.database.rpc('place_order', {
+        const { data, error } = await db.rpc('place_order', {
           p_delivery_name: deliveryName.trim(),
           p_delivery_phone: deliveryPhone.trim(),
           p_delivery_address: deliveryAddress.trim(),
@@ -357,7 +409,7 @@ export function createInsforgeAdapter(client) {
         return (rows || []).map(mapOrder);
       },
 
-      async getById(orderId, _options) {
+      async getById(orderId) {
         const row = unwrap(await db.from('orders').select(ORDER_COLUMNS).eq('id', orderId).maybeSingle());
         if (!row) throw new Error('Order not found.');
         return mapOrder(row);
@@ -383,11 +435,24 @@ export function createInsforgeAdapter(client) {
 
     storage: {
       async uploadProductImage(file) {
-        const { data, error } = await client.storage.from('product-images').uploadAuto(file);
-        if (error) throw new Error('Could not upload the image.');
-        const publicUrl = client.storage.from('product-images').getPublicUrl(data.path || data.key);
-        if (publicUrl.error) throw new Error('Could not read the uploaded image URL.');
-        return publicUrl.data.publicUrl;
+        const bucket = client.storage.from('product-images');
+        const extension = (file.name.split('.').pop() || 'jpg').toLowerCase();
+        const unique =
+          typeof crypto !== 'undefined' && crypto.randomUUID
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        const path = `products/${unique}.${extension}`;
+
+        const { error } = await bucket.upload(path, file, {
+          cacheControl: '3600',
+          contentType: file.type || 'image/jpeg',
+          upsert: false,
+        });
+        if (error) throw new Error(error.message || 'Could not upload the image.');
+
+        const { data } = bucket.getPublicUrl(path);
+        if (!data?.publicUrl) throw new Error('Could not read the uploaded image URL.');
+        return data.publicUrl;
       },
     },
   };

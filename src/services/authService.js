@@ -1,7 +1,7 @@
 import { dataClient } from '../lib/dataClient';
 
 /**
- * Read the persisted InsForge session and matching profile.
+ * Read the persisted Supabase session and matching profile.
  * @returns {Promise<{user: {id: string, email: string}, profile: object} | null>}
  */
 export async function getSession() {

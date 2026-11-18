@@ -1,6 +1,6 @@
 # FootWear
 
-A sneaker shopping cart built with React, Vite and InsForge. Customers browse the
+A sneaker shopping cart built with React, Vite and Supabase. Customers browse the
 collection, pick a size, add items to a cart, check out with **Cash on Delivery**,
 and follow their orders. Admins manage products, stock, images and order statuses
 from a dashboard.
@@ -11,7 +11,7 @@ from a dashboard.
 - React Router 7
 - Plain CSS Modules with design tokens (`src/styles/tokens.css`)
 - Lucide React icons
-- InsForge for authentication, PostgreSQL and storage (`@insforge/sdk`)
+- Supabase for authentication, PostgreSQL and storage (`@supabase/supabase-js`)
 - A built-in demo backend on `localStorage` so the app runs without any backend
 
 ## Run locally
@@ -25,7 +25,7 @@ Open the URL Vite prints (usually `http://localhost:5173`).
 
 ### Demo mode (no backend needed)
 
-When `VITE_INSFORGE_URL` and `VITE_INSFORGE_ANON_KEY` are empty, the app uses
+When `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` are empty, the app uses
 `src/lib/localAdapter.js` and seeds sample data in the browser. The login page
 shows one-click demo buttons.
 
@@ -37,16 +37,33 @@ shows one-click demo buttons.
 The demo data lives under `footwear.demo.state.v1` in `localStorage`. Remove that
 key (DevTools → Application → Local Storage) to reseed the store.
 
-### Connect a real InsForge project
+### Demo accounts in the live project
 
-1. Copy `.env.example` to `.env` and fill in the two values from your InsForge
-   dashboard. Never commit `.env`.
-2. Run `insforge/schema.sql` in the InsForge SQL editor. It creates the tables,
-   row-level security policies, storage policies and the atomic `place_order`
-   function.
-3. Create the `product-images` storage bucket (public read) if the SQL editor
-   cannot create buckets for you.
-4. Register an account through the app, then promote it to admin:
+The same two accounts exist in the Supabase project, so you can sign in without
+registering:
+
+| Role     | Email                 | Password    |
+| -------- | --------------------- | ----------- |
+| Customer | `demo@footwear.dev`   | `demo1234`  |
+| Admin    | `admin@footwear.dev`  | `admin1234` |
+
+The customer has two sample orders. New accounts created through the Register
+page start with the `customer` role.
+
+### Connect a real Supabase project
+
+1. Copy `.env.example` to `.env` and fill in the two values from
+   Project Settings → API in the Supabase dashboard. Never commit `.env`.
+2. Run `supabase/schema.sql` in the Supabase SQL editor. It creates the tables,
+   row-level security policies, the profile trigger, the storage bucket and the
+   atomic `place_order` function.
+3. Optionally run `supabase/seed.sql` to load the same 15 products the demo
+   backend uses.
+4. In Authentication → Sign In / Providers → Email, turn **Confirm email** off
+   for a local demo (otherwise new accounts wait on a confirmation mail).
+5. Under Authentication → URL Configuration, set the Site URL to
+   `http://localhost:5173`.
+6. Register an account through the app, then promote it to admin:
 
    ```sql
    update public.profiles
@@ -67,7 +84,8 @@ Restart `npm run dev` after changing `.env`.
 ## Project structure
 
 ```
-insforge/schema.sql          Database schema, RLS and place_order function
+supabase/schema.sql           Database schema, RLS and place_order function
+supabase/seed.sql             Optional sample catalogue (15 products)
 src/
   components/
     admin/                   Admin-only components (stat cards, product form)
@@ -112,3 +130,28 @@ src/
 - All prices are whole rupees and formatted with `Intl.NumberFormat('en-IN')`.
 - Delivery is free over ₹4,999; otherwise ₹149.
 - Cash on Delivery is the only payment method, by design.
+
+## Deploy to Vercel
+
+The app is a static Vite build, and `vercel.json` rewrites every route to
+`index.html` so React Router works on refresh.
+
+1. Push the repository to GitHub.
+2. In Vercel: **Add New → Project**, then import the repository.
+3. Framework preset: **Vite**. Build command `npm run build`, output directory
+   `dist` (Vercel detects both automatically).
+4. Add the environment variables under **Settings → Environment Variables**, for
+   Production and Preview:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_PUBLISHABLE_KEY`
+5. Deploy, then copy the deployment URL.
+6. In Supabase: **Authentication → URL Configuration**. Set the Site URL to the
+   deployment URL and add `https://your-app.vercel.app/**` to the redirect URLs.
+
+Environment variables are read at build time, so redeploy after changing them.
+
+### Supabase free-tier note
+
+Free projects pause after about a week without activity. Open the dashboard (or
+make one request) before a demo to wake the project up.
+

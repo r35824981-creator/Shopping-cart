@@ -1,32 +1,16 @@
--- FootWear — InsForge (PostgreSQL) schema
+-- FootWear — Supabase (PostgreSQL) schema
 --
--- Run this once in the InsForge SQL editor for a fresh project, then create the
--- first admin by updating a profile row's role to 'admin'.
+-- Run once against a fresh Supabase project (SQL Editor, or `supabase db push`).
+-- After the first account is registered through the app, promote it:
+--   update public.profiles set role = 'admin'
+--   where id = (select id from auth.users where email = 'you@example.com');
 --
--- The frontend also ships with an in-browser demo backend (see
--- src/lib/localAdapter.js). Demo mode is used automatically when
--- VITE_INSFORGE_URL / VITE_INSFORGE_ANON_KEY are not configured.
-
-create extension if not exists pgcrypto;
-
--- ---------------------------------------------------------------------------
--- Helpers
--- ---------------------------------------------------------------------------
-
--- True when the signed-in user has the admin role. SECURITY DEFINER avoids
--- recursive RLS checks on the profiles table inside policies.
-create or replace function public.is_admin()
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select exists (
-    select 1 from public.profiles
-    where id = auth.uid() and role = 'admin'
-  );
-$$;
+-- The frontend also ships with an in-browser demo backend (src/lib/localAdapter.js).
+-- Demo mode is used automatically when VITE_SUPABASE_URL /
+-- VITE_SUPABASE_PUBLISHABLE_KEY are not configured.
+--
+-- Order matters: public.is_admin() reads public.profiles, and PostgreSQL
+-- validates SQL function bodies at creation time, so the tables come first.
 
 -- ---------------------------------------------------------------------------
 -- Tables
@@ -96,11 +80,70 @@ create table if not exists public.order_items (
   unit_price integer not null check (unit_price >= 0)
 );
 
+-- ---------------------------------------------------------------------------
+-- Indexes
+-- ---------------------------------------------------------------------------
+
 create index if not exists products_category_idx on public.products (category);
 create index if not exists products_brand_idx on public.products (brand);
 create index if not exists cart_items_user_idx on public.cart_items (user_id);
+create index if not exists cart_items_product_idx on public.cart_items (product_id);
 create index if not exists orders_user_idx on public.orders (user_id);
 create index if not exists order_items_order_idx on public.order_items (order_id);
+create index if not exists order_items_product_idx on public.order_items (product_id);
+
+-- ---------------------------------------------------------------------------
+-- Helpers
+-- ---------------------------------------------------------------------------
+
+-- True when the signed-in user has the admin role. SECURITY DEFINER avoids
+-- recursive RLS checks on the profiles table inside policies.
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.profiles
+    where id = auth.uid() and role = 'admin'
+  );
+$$;
+
+-- Supabase creates the auth.users row inside its own transaction, so a trigger
+-- is the only reliable place to create the matching profile. This works whether
+-- or not "Confirm email" is enabled (the client never holds a session then).
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.profiles (id, full_name, phone, role)
+  values (
+    new.id,
+    coalesce(
+      nullif(new.raw_user_meta_data ->> 'full_name', ''),
+      split_part(coalesce(new.email, ''), '@', 1),
+      'Customer'
+    ),
+    '',
+    'customer'
+  )
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+
+-- Trigger functions never need API access; leave them uncallable.
+revoke all on function public.handle_new_user() from public, anon, authenticated;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
 
 -- ---------------------------------------------------------------------------
 -- Row Level Security
@@ -113,85 +156,141 @@ alter table public.cart_items enable row level security;
 alter table public.orders enable row level security;
 alter table public.order_items enable row level security;
 
+-- `auth.uid()` and `is_admin()` are wrapped in `(select ...)` so PostgreSQL
+-- evaluates them once per query (an InitPlan) instead of once per row.
+
 -- Profiles: read/update your own row; admins read every profile. Users cannot
 -- change their own role because updates are restricted to name and phone.
 drop policy if exists "profiles read own or admin" on public.profiles;
 create policy "profiles read own or admin"
   on public.profiles for select
-  using (id = auth.uid() or public.is_admin());
+  to authenticated
+  using (id = (select auth.uid()) or (select public.is_admin()));
 
 drop policy if exists "profiles insert own" on public.profiles;
 create policy "profiles insert own"
   on public.profiles for insert
-  with check (id = auth.uid());
+  to authenticated
+  with check (id = (select auth.uid()));
 
 drop policy if exists "profiles update own details" on public.profiles;
 create policy "profiles update own details"
   on public.profiles for update
-  using (id = auth.uid())
-  with check (id = auth.uid() and role = 'customer');
+  to authenticated
+  using (id = (select auth.uid()))
+  with check (id = (select auth.uid()) and role = 'customer');
 
--- Products: anyone can read active products; admins manage everything.
+-- Products: anyone can read active products; admins manage everything. The
+-- admin policies are split per action so SELECT does not evaluate two policies.
 drop policy if exists "products public read" on public.products;
 create policy "products public read"
   on public.products for select
-  using (is_active or public.is_admin());
+  to anon, authenticated
+  using (is_active or (select public.is_admin()));
 
-drop policy if exists "products admin write" on public.products;
-create policy "products admin write"
-  on public.products for all
-  using (public.is_admin())
-  with check (public.is_admin());
+drop policy if exists "products admin insert" on public.products;
+create policy "products admin insert"
+  on public.products for insert
+  to authenticated
+  with check ((select public.is_admin()));
+
+drop policy if exists "products admin update" on public.products;
+create policy "products admin update"
+  on public.products for update
+  to authenticated
+  using ((select public.is_admin()))
+  with check ((select public.is_admin()));
+
+drop policy if exists "products admin delete" on public.products;
+create policy "products admin delete"
+  on public.products for delete
+  to authenticated
+  using ((select public.is_admin()));
 
 -- Sizes follow their parent product.
 drop policy if exists "product sizes public read" on public.product_sizes;
 create policy "product sizes public read"
   on public.product_sizes for select
+  to anon, authenticated
   using (
-    public.is_admin()
+    (select public.is_admin())
     or exists (
       select 1 from public.products p
       where p.id = product_id and p.is_active
     )
   );
 
-drop policy if exists "product sizes admin write" on public.product_sizes;
-create policy "product sizes admin write"
-  on public.product_sizes for all
-  using (public.is_admin())
-  with check (public.is_admin());
+drop policy if exists "product sizes admin insert" on public.product_sizes;
+create policy "product sizes admin insert"
+  on public.product_sizes for insert
+  to authenticated
+  with check ((select public.is_admin()));
+
+drop policy if exists "product sizes admin update" on public.product_sizes;
+create policy "product sizes admin update"
+  on public.product_sizes for update
+  to authenticated
+  using ((select public.is_admin()))
+  with check ((select public.is_admin()));
+
+drop policy if exists "product sizes admin delete" on public.product_sizes;
+create policy "product sizes admin delete"
+  on public.product_sizes for delete
+  to authenticated
+  using ((select public.is_admin()));
 
 -- Cart items belong to one user.
 drop policy if exists "cart items own" on public.cart_items;
 create policy "cart items own"
   on public.cart_items for all
-  using (user_id = auth.uid())
-  with check (user_id = auth.uid());
+  to authenticated
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid()));
 
 -- Orders: customers read their own; admins read all and update status. Orders
 -- are only created by the place_order function below.
 drop policy if exists "orders read own or admin" on public.orders;
 create policy "orders read own or admin"
   on public.orders for select
-  using (user_id = auth.uid() or public.is_admin());
+  to authenticated
+  using (user_id = (select auth.uid()) or (select public.is_admin()));
 
 drop policy if exists "orders admin update" on public.orders;
 create policy "orders admin update"
   on public.orders for update
-  using (public.is_admin())
-  with check (public.is_admin());
+  to authenticated
+  using ((select public.is_admin()))
+  with check ((select public.is_admin()));
 
 -- Order items are readable with their parent order.
 drop policy if exists "order items read own or admin" on public.order_items;
 create policy "order items read own or admin"
   on public.order_items for select
+  to authenticated
   using (
-    public.is_admin()
+    (select public.is_admin())
     or exists (
       select 1 from public.orders o
-      where o.id = order_id and o.user_id = auth.uid()
+      where o.id = order_id and o.user_id = (select auth.uid())
     )
   );
+
+-- ---------------------------------------------------------------------------
+-- API grants
+-- ---------------------------------------------------------------------------
+
+-- RLS still decides which rows are visible; these grants only open the tables
+-- and functions to the API roles that need them.
+grant usage on schema public to anon, authenticated;
+
+grant select on public.products, public.product_sizes to anon, authenticated;
+grant insert, update, delete on public.products, public.product_sizes to authenticated;
+
+grant select, insert, update, delete on public.cart_items to authenticated;
+grant select, update on public.orders to authenticated;
+grant select on public.order_items to authenticated;
+
+grant select, insert, update on public.profiles to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Atomic order placement
@@ -289,30 +388,42 @@ grant execute on function public.place_order(text, text, text) to authenticated;
 -- Storage
 -- ---------------------------------------------------------------------------
 
--- Create the bucket in the InsForge dashboard (Storage → New bucket):
---   name: product-images, public read: on
--- Then apply these policies so only admins can write files.
-insert into storage.buckets (id, name, public)
-values ('product-images', 'product-images', true)
-on conflict (id) do nothing;
+-- Product images: public read, admin-only writes. The bucket is created here so
+-- a fresh project needs no dashboard clicks.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'product-images',
+  'product-images',
+  true,
+  5242880,
+  array['image/jpeg', 'image/png', 'image/webp']
+)
+on conflict (id) do update
+  set public = excluded.public,
+      file_size_limit = excluded.file_size_limit,
+      allowed_mime_types = excluded.allowed_mime_types;
 
 drop policy if exists "product images public read" on storage.objects;
 create policy "product images public read"
   on storage.objects for select
+  to anon, authenticated
   using (bucket_id = 'product-images');
 
 drop policy if exists "product images admin write" on storage.objects;
 create policy "product images admin write"
-  on storage.objects for all
-  using (bucket_id = 'product-images' and public.is_admin())
-  with check (bucket_id = 'product-images' and public.is_admin());
+  on storage.objects for insert
+  to authenticated
+  with check (bucket_id = 'product-images' and (select public.is_admin()));
 
--- ---------------------------------------------------------------------------
--- First admin
--- ---------------------------------------------------------------------------
+drop policy if exists "product images admin update" on storage.objects;
+create policy "product images admin update"
+  on storage.objects for update
+  to authenticated
+  using (bucket_id = 'product-images' and (select public.is_admin()))
+  with check (bucket_id = 'product-images' and (select public.is_admin()));
 
--- 1. Register the admin account through the app (it gets the customer role).
--- 2. Promote it once:
---    update public.profiles set role = 'admin' where id = (
---      select id from auth.users where email = 'admin@example.com'
---    );
+drop policy if exists "product images admin delete" on storage.objects;
+create policy "product images admin delete"
+  on storage.objects for delete
+  to authenticated
+  using (bucket_id = 'product-images' and (select public.is_admin()));
