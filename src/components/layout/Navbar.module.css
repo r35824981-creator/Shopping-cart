@@ -1,0 +1,341 @@
+.header {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-navbar);
+  border-bottom: 1px solid var(--border-default);
+  background-color: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(12px);
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  height: var(--navbar-height);
+}
+
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.logoMark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background-color: var(--bg-inverse);
+  color: var(--accent-primary);
+}
+
+.logoText {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.logoText span {
+  color: var(--accent-primary);
+}
+
+.nav {
+  display: none;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.navLink {
+  position: relative;
+  padding: 6px 0;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 500;
+  transition: color var(--transition-fast);
+}
+
+.navLink:hover {
+  color: var(--text-primary);
+}
+
+.activeLink {
+  color: var(--text-primary);
+}
+
+.activeLink::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  border-radius: var(--radius-full);
+  background-color: var(--accent-primary);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  color: var(--text-primary);
+  transition: background-color var(--transition-fast);
+}
+
+.iconButton:hover {
+  background-color: var(--bg-muted);
+}
+
+.cartButton {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  color: var(--text-primary);
+  transition: background-color var(--transition-fast);
+}
+
+.cartButton:hover {
+  background-color: var(--bg-muted);
+}
+
+.cartCount {
+  position: absolute;
+  top: 2px;
+  right: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: var(--radius-full);
+  background-color: var(--accent-primary);
+  color: var(--text-on-accent);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.account {
+  position: relative;
+  margin-left: var(--space-1);
+}
+
+.avatarButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border-radius: var(--radius-full);
+  transition: background-color var(--transition-fast);
+}
+
+.avatarButton:hover {
+  background-color: var(--bg-muted);
+}
+
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-full);
+  background-color: var(--bg-inverse);
+  color: var(--text-on-accent);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.chevron {
+  color: var(--text-muted);
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  z-index: 60;
+  width: 232px;
+  padding: var(--space-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-surface);
+  box-shadow: var(--shadow-lifted);
+  animation: pop var(--transition-fast);
+}
+
+.menuHeader {
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  border-bottom: 1px solid var(--border-default);
+  margin-bottom: var(--space-1);
+}
+
+.menuName {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.menuEmail {
+  color: var(--text-muted);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 10px var(--space-3);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 14px;
+  text-align: left;
+  transition: background-color var(--transition-fast);
+}
+
+.menuItem:hover {
+  background-color: var(--bg-base);
+}
+
+.signIn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-full);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.signIn:hover {
+  background-color: var(--bg-muted);
+}
+
+.burger {
+  display: inline-flex;
+}
+
+.searchPanel {
+  border-top: 1px solid var(--border-default);
+  background-color: var(--bg-surface);
+}
+
+.searchForm {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding-block: var(--space-3);
+}
+
+.searchIcon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.searchInput {
+  flex: 1;
+  min-height: 40px;
+  border: 0;
+  background: transparent;
+  font-size: 15px;
+}
+
+.searchInput:focus {
+  outline: none;
+}
+
+.searchSubmit {
+  padding: 8px 16px;
+  border-radius: var(--radius-full);
+  background-color: var(--bg-inverse);
+  color: var(--text-on-accent);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mobileNav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.mobileLink {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 500;
+  text-align: left;
+}
+
+.mobileLink:hover {
+  background-color: var(--bg-base);
+}
+
+.mobileLinkAccent {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  margin-top: var(--space-2);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-full);
+  background-color: var(--accent-primary);
+  color: var(--text-on-accent);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.mobileDivider {
+  height: 1px;
+  margin-block: var(--space-3);
+  background-color: var(--border-default);
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@media (min-width: 768px) {
+  .nav {
+    display: flex;
+  }
+
+  .burger {
+    display: none;
+  }
+}
+
+@media (max-width: 400px) {
+  .signIn span {
+    display: none;
+  }
+}

@@ -1,0 +1,154 @@
+.loading {
+  display: flex;
+  justify-content: center;
+  padding-block: var(--space-16);
+  color: var(--text-muted);
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.back:hover {
+  color: var(--text-primary);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-8);
+}
+
+.title {
+  font-size: 32px;
+}
+
+.subtitle {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-5);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-surface);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.sectionTitle {
+  font-size: 18px;
+}
+
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.payment {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--accent-primary);
+  border-radius: var(--radius-sm);
+  background-color: var(--accent-soft);
+}
+
+.paymentIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background-color: var(--bg-surface);
+  color: var(--accent-hover);
+}
+
+.paymentCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.paymentTop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.paymentTitle {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.paymentText {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.serverError {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  background-color: var(--state-error-soft);
+  color: var(--state-error);
+  font-size: 13px;
+}
+
+.terms {
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.summary {
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .title {
+    font-size: 40px;
+  }
+
+  .form {
+    padding: var(--space-6);
+  }
+}
+
+@media (min-width: 1024px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) 380px;
+    gap: var(--space-8);
+  }
+
+  .summary {
+    position: sticky;
+    top: calc(var(--navbar-height) + var(--space-6));
+  }
+}

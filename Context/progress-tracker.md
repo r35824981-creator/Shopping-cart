@@ -5,66 +5,84 @@ change.
 
 ## Current Phase
 
-- Phase 0: Planning and context setup. In progress. No application code has been written yet.
+- Phase 14 complete (responsive and polish pass).
+- Phase 15 (testing and success criteria) is in progress; deployment preparation is next.
 
 ## Current Goal
 
-- Finish the context files (architecture, code standards, AI workflow rules), then set up the React project and connect it to InsForge.
+- Complete the success-criteria checklist against the running app, then prepare deployment notes and the demo.
 
 ## Completed
 
 - `project-overview.md` written (FootWear overview, goals, user flow, features, scope, success criteria).
-- `ui-context.md` written with placeholder design tokens. Values still need to be checked against the Dribbble reference.
+- `ui-context.md` written with design tokens.
+- `architecture.md`, `code_standards.md` and `ai-workflow-rules.md` written.
+- **Project setup:** React 19 + Vite 8 + React Router 7 project, folder structure, `tokens.css`, `global.css`, `.env.example`, `.gitignore`, Git repository.
+- **Data layer:** `src/lib/dataClient.js` with two adapters that share one contract:
+  - `insforgeAdapter.js` for a real InsForge project (`auth`, PostgREST-style `database`, `storage`).
+  - `localAdapter.js` demo backend on `localStorage`, seeded with 15 products, 2 users and 2 sample orders.
+  - `insforge/schema.sql` with tables, indexes, RLS policies, storage policies and the atomic `place_order` function.
+- **Services:** `authService`, `productService`, `cartService`, `orderService`, `storageService`.
+- **State:** `AuthContext`, `CartContext`, `ToastContext`; hooks for document title, products, product detail, featured products and filter options.
+- **UI primitives:** Button, Input, Select, Textarea, Badge, Modal, Drawer, Spinner, Skeleton, EmptyState, ToastViewport (CSS Modules + tokens).
+- **Layout shell:** sticky Navbar with search panel, cart button and account menu; footer; mobile hamburger drawer; scroll-to-top on navigation.
+- **Authentication:** register, login, logout, session persistence, `ProtectedRoute`, `AdminRoute`, demo-account shortcuts on the login page.
+- **Home page:** hero, brand strip, featured products, category cards.
+- **Product listing:** responsive grid, search, brand/category/price filters, sorting, mobile filter drawer, loading/empty/error states.
+- **Product detail:** gallery with thumbnails, size selector with stock, quantity stepper, add to cart, related products.
+- **Cart:** full review page and slide-in drawer, quantity updates, remove, totals, free-delivery threshold.
+- **Checkout:** delivery form with validation, Cash on Delivery confirmation, atomic order placement, redirect to the new order.
+- **Order history:** customer order list with statuses, order detail page with tracking timeline, delivery and payment cards.
+- **Admin dashboard:** revenue/order/pending/product metrics, recent orders, low-stock list, demo-mode notice.
+- **Admin products:** searchable table, create/edit form with per-size stock, image upload, feature/active toggles, delete confirmation.
+- **Admin orders:** status filters, inline status updates, links to full order detail.
+- **Polish:** 404 page, signed-in-aware footer, empty/loading/error states, Indian rupee formatting, responsive breakpoints.
+- **Documentation:** `README.md` with setup, demo credentials, InsForge connection steps and project structure; `insforge/schema.sql`; architecture and tracker kept in sync.
+- **Testing:** production build passes; browser checks cover customer and admin demo sign-in, cart drawer, add/update/remove, COD checkout, order history, admin metrics, product create/edit, order status updates, route guards, search/filter/sort, mobile navigation and no horizontal overflow at 390px.
 
 ## In Progress
 
-- `architecture.md`
-- `code_standards.md`
-- `ai-workflow-rules.md`
+- Final review before deployment (Phase 15).
 
 ## Next Up
 
-Build in this order. Finish and verify each unit before starting the next.
-
-1. Project setup: create the React app, folder structure, global CSS tokens from `ui-context.md`, and Git repository on GitHub.
-2. InsForge setup: create the InsForge project, connect the frontend, and store keys in environment variables.
-3. Database: create tables (profiles, products, product sizes, cart items, orders, order items) with access rules.
-4. Authentication: register, login, logout, session persistence, protected routes, and the admin role.
-5. Layout shell: Navbar, Footer, and routing.
-6. Home page: hero section and featured products.
-7. Product listing: grid, search, filters, and sorting.
-8. Product detail page: gallery, size selector, and add to cart.
-9. Cart: add, remove, quantity update, and totals.
-10. Checkout: delivery form and Cash on Delivery order placement.
-11. Order history: user's past orders and statuses.
-12. Admin dashboard: product CRUD with image upload to InsForge Storage.
-13. Admin orders: view all orders and update status.
-14. Responsive and polish pass: empty, loading, and error states on every page.
-15. Testing against the success criteria in `project-overview.md`.
-16. Deployment and demo preparation.
+1. Choose a static host and set `VITE_INSFORGE_URL` / `VITE_INSFORGE_ANON_KEY` there (or deploy in demo mode for the presentation).
+2. Add the host's SPA rewrite so every route serves `index.html`.
+3. Re-run the live checklist: register, log in, add to cart, place an order, open the admin dashboard, update an order status.
 
 ## Open Questions
 
-- Do the colors, fonts, and layout in `ui-context.md` match the Dribbble reference? A screenshot is needed to confirm.
-- Which hosting platform will be used to deploy the frontend (for example Vercel or Netlify)?
-- How is the first admin account created: set the role manually in the database, or seed it?
-- Is stock tracked per size, or is each size simply available or unavailable?
-- Should the cart for a logged-in user be stored in the database or in local storage?
-- Which product categories and brands will be used for the filters?
+- ~~Do the colors, fonts, and layout in `ui-context.md` match the Dribbble reference?~~ Resolved: the reference could not be read automatically; the tokens in `ui-context.md` are used as the source of truth.
+- ~~Which hosting platform will be used to deploy the frontend?~~ Still open; the app is a static Vite build, so Vercel, Netlify or GitHub Pages all work with an `index.html` rewrite.
+- ~~How is the first admin account created?~~ Resolved: promote a registered profile to `role = 'admin'` in the InsForge dashboard (SQL snippet at the end of `insforge/schema.sql`). Demo mode ships an admin account.
+- ~~Is stock tracked per size?~~ Resolved: yes, `product_sizes.stock` per size, enforced in cart and order placement.
+- ~~Should the cart for a logged-in user be stored in the database or in local storage?~~ Resolved: database (`cart_items`) with the InsForge adapter; `localStorage` only in demo mode.
+- ~~Which product categories and brands will be used for the filters?~~ Resolved: Running, Lifestyle, Basketball, Training; Nike, Adidas, Puma, New Balance, Reebok, Asics.
 
 ## Architecture Decisions
 
-- **React.js frontend with InsForge as the backend (BaaS):** no custom server to build or host, which keeps the project simple and lets the focus stay on frontend, database design, and integration. Authentication, database, and storage all come from one platform.
+- **React.js frontend with InsForge as the backend (BaaS):** no custom server to build or host, which keeps the project simple and lets the focus stay on frontend, database design, and integration.
 - **PostgreSQL through InsForge:** orders, cart items, and products are relational data, so a relational database fits well.
 - **Cash on Delivery only:** avoids payment gateway integration and keeps the checkout simple for an academic project.
 - **Login required for checkout, browsing is public:** lets anyone explore products, while orders are always tied to a user account.
-- **Light theme with plain CSS and CSS variables:** matches the minimalist reference and the stated stack (HTML and CSS), with no extra UI library to learn or maintain.
-- **Admin access through a role on the user profile:** keeps one login system for both customers and admin, with admin pages protected by role checks and database access rules.
+- **Light theme with plain CSS and CSS variables:** matches the minimalist reference, with no extra UI library.
+- **Admin access through a role on the user profile:** one login system for customers and admins, with route guards plus RLS as the real protection.
+- **Adapter layer with demo fallback:** `dataClient.js` selects the InsForge adapter when credentials exist and a `localStorage` adapter otherwise. This lets the project run, be reviewed and be graded without a hosted backend, while the InsForge path stays a first-class implementation.
+- **Atomic order placement:** InsForge uses the `place_order` SQL function (one transaction); the demo adapter mirrors the same steps in memory before writing once.
+- **Whole-rupee integer prices:** INR prices have no paise, so the database stores integers and the UI formats with `Intl.NumberFormat('en-IN')`.
+
+## Demo Credentials
+
+- Customer: `demo@footwear.dev` / `demo1234`
+- Admin: `admin@footwear.dev` / `admin1234`
+- The login page also has one-click "Customer demo" and "Admin demo" buttons while demo mode is active.
 
 ## Session Notes
 
 - Project: FootWear, an online sneaker shopping cart built as a B.Tech final-year project.
 - Stack: React.js, JavaScript, HTML and CSS, InsForge (PostgreSQL, Authentication, Storage), Git and GitHub.
-- Design reference: https://dribbble.com/shots/22748023-FootWear-Sneakers-Ecommerce-Website (the page could not be read automatically, so the tokens in `ui-context.md` are placeholders).
-- Context files so far: `project-overview.md` and `ui-context.md` are written. `architecture.md`, `code_standards.md`, and `ai-workflow-rules.md` are still to be written.
-- When resuming, read all context files first, then continue with the first unchecked unit under Next Up.
+- Design reference: https://dribbble.com/shots/22748023-FootWear-Sneakers-Ecommerce-Website (the page could not be read automatically, so the tokens in `ui-context.md` are the source of truth).
+- Node.js is not installed system-wide on this machine. A portable Node 26 build lives at `C:\Users\r3582\AppData\Local\Tools\node-v26.13.1-win-x64`; run npm with `$env:Path = "<that path>;$env:Path"; & "<that path>\npm.cmd" run <script>`.
+- Run locally with `npm run dev` (Vite, default port 5173). Build with `npm run build`.
+- Verified in the browser: demo sign-in (customer and admin), add to cart, cart quantity/remove, COD checkout, order confirmation, order history, admin metrics, product create/edit/delete, order status updates, route guards, loading/empty/error states.
+- Production build passes; the only warning is the @insforge/sdk `crypto` externalisation notice from Vite (harmless in the browser bundle).

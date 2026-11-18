@@ -1,0 +1,17 @@
+.image {
+  object-fit: cover;
+}
+
+.fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-base);
+  overflow: hidden;
+}
+
+.fallback svg {
+  width: 100%;
+  height: 100%;
+  padding: 8%;
+}

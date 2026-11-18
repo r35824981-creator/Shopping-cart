@@ -1,0 +1,72 @@
+:root {
+  /* Colors */
+  --bg-base: #f6f6f3;
+  --bg-surface: #ffffff;
+  --bg-inverse: #111111;
+  --text-primary: #111111;
+  --text-muted: #6b6b66;
+  --text-on-accent: #ffffff;
+  --accent-primary: #ff5a1f;
+  --accent-hover: #e64a12;
+  --border-default: #e4e4df;
+  --state-error: #dc2626;
+  --state-success: #16a34a;
+
+  /* Derived tints (used for soft backgrounds only) */
+  --bg-muted: #efefea;
+  --accent-soft: #fff0e9;
+  --state-error-soft: #fdecec;
+  --state-success-soft: #e9f7ee;
+  --state-warning-soft: #fff5e5;
+  --state-warning: #b45309;
+
+  /* Typography */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-display: 'Poppins', var(--font-sans);
+
+  /* Radius */
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-full: 9999px;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* Layout */
+  --container-max: 1200px;
+  --container-padding: 16px;
+  --navbar-height: 72px;
+
+  /* Shadow */
+  --shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.06);
+  --shadow-lifted: 0 16px 40px rgba(0, 0, 0, 0.1);
+  --shadow-overlay: 0 24px 64px rgba(17, 17, 17, 0.18);
+
+  /* Motion */
+  --transition-fast: 140ms ease;
+  --transition-base: 220ms ease;
+
+  /* Layers */
+  --z-navbar: 50;
+  --z-overlay: 100;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --container-padding: 24px;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --container-padding: 32px;
+  }
+}

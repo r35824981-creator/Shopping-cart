@@ -23,7 +23,7 @@
 - `src/context/` — Global state providers: `AuthContext` (current user, profile, role) and `CartContext` (cart items and totals).
 - `src/hooks/` — Custom hooks that wrap context and data-fetching logic.
 - `src/services/` — The data access layer. The only place that calls InsForge for products, cart, orders, auth, and storage.
-- `src/lib/insforge.js` — Creates the single shared InsForge client from environment variables.
+- `src/lib/dataClient.js` — Chooses the data adapter: the InsForge adapter when `VITE_INSFORGE_URL` and `VITE_INSFORGE_ANON_KEY` are set, or the in-browser demo adapter otherwise. `insforgeAdapter.js` wraps the single shared InsForge client; `localAdapter.js` mirrors the same contract on top of `localStorage`.
 - `src/utils/` — Pure helpers: price formatting, cart total calculation, validators.
 - `src/styles/` — `tokens.css` (design tokens) and `global.css`.
 - InsForge project — Owns the database schema, access rules (RLS), auth configuration, and storage buckets. These are configured on the InsForge side and recorded in this file.
@@ -32,10 +32,12 @@
 
 All table and column names use `snake_case`. Primary keys are `id` (UUID).
 
+The complete schema, RLS policies, storage bucket policies and the `place_order` function live in [`insforge/schema.sql`](../insforge/schema.sql).
+
 | Table           | Key columns                                                                                                   | Notes                                                        |
 | --------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
 | `profiles`      | `id` (matches the auth user id), `full_name`, `phone`, `role` (`customer` or `admin`), `created_at`           | One row per user. Default role is `customer`                 |
-| `products`      | `id`, `name`, `slug`, `description`, `brand`, `category`, `price`, `image_url`, `is_featured`, `is_active`, `created_at` | `price` is numeric. Inactive products are hidden from the store |
+| `products`      | `id`, `name`, `slug`, `description`, `brand`, `category`, `price`, `image_url`, `is_featured`, `is_active`, `created_at` | `price` is a whole number of rupees. Inactive products are hidden from the store |
 | `product_sizes` | `id`, `product_id`, `size`, `stock`                                                                           | One row per available size of a product                      |
 | `cart_items`    | `id`, `user_id`, `product_id`, `size`, `quantity`, `created_at`                                               | Unique on (`user_id`, `product_id`, `size`)                  |
 | `orders`        | `id`, `user_id`, `status`, `total_amount`, `payment_method`, `delivery_name`, `delivery_phone`, `delivery_address`, `created_at` | `payment_method` is always `COD`. Status values: `pending`, `confirmed`, `shipped`, `delivered`, `cancelled` |
@@ -53,6 +55,12 @@ Relationships:
 - **File storage (InsForge Storage)**: Product images in a `product-images` bucket. The bucket allows public read so the storefront can display images, and only admins can upload, replace, or delete files.
 - **Browser (localStorage)**: Only the InsForge session handled by the SDK and light UI preferences. Cart data for signed-in users lives in the database, not in the browser.
 
+### Demo mode
+
+- With no InsForge credentials configured, `src/lib/dataClient.js` loads the demo adapter. The demo adapter keeps the entire dataset (users, products, sizes, carts, orders) in `localStorage` and seeds it with sample products, a customer account and an admin account on first load.
+- Demo mode exists so the project can be reviewed and graded without hosting a backend. The InsForge adapter exposes the same methods, so pages and services never branch on the mode.
+- A visible "Demo mode" note appears on the admin dashboard and the login page whenever the demo adapter is active.
+
 ## Auth and Access Model
 
 - Every account is created and signed in through InsForge Authentication with email and password. A `profiles` row is created for each new user with the role `customer`.
@@ -66,16 +74,16 @@ Relationships:
 ## Order Flow
 
 1. The user reviews the cart (`cart_items`) and submits the checkout form (name, phone, address).
-2. The app creates an `orders` row with status `pending` and payment method `COD`, then one `order_items` row per cart item, copying the product name, image, size, quantity, and current price.
-3. The app clears the user's `cart_items` after the order is saved successfully.
-4. The user sees a confirmation and can find the order in order history.
-5. An admin updates the order status from the dashboard. The user sees the new status on their next load.
+2. With the InsForge adapter the app calls the `place_order` database function, which creates the `orders` row with status `pending` and payment method `COD`, copies one `order_items` row per cart item (product name, image, size, quantity and current price), reduces stock and clears the cart in a single transaction. The demo adapter performs the same steps against its local state.
+3. The user sees a confirmation and can find the order in order history.
+4. An admin updates the order status from the dashboard. The user sees the new status on their next load.
 
 ## Environment and Deployment
 
 - Environment variables (documented in `.env.example`, real values in `.env` which is never committed):
   - `VITE_INSFORGE_URL` — the InsForge project URL.
   - `VITE_INSFORGE_ANON_KEY` — the public client key, if the project requires one.
+- When either variable is empty, the app starts in demo mode with the local adapter. No backend setup is required to run, review or grade the project.
 - Only public, client-safe values are used in the frontend. Admin or service credentials are never placed in the frontend.
 - Build: `npm run build` produces a static bundle that is deployed to the hosting platform. The same environment variables are set in the host's settings.
 - Because the app is a single-page app, the host must rewrite all routes to `index.html`.
